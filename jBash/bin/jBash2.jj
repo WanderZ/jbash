@@ -1,0 +1,201 @@
+/**
+ * @Autor Vincenzo Dentamaro 556035
+ * jBash Java parser per la Bourne Again Shell (Bash)
+ */
+
+PARSER_BEGIN(jBash)
+
+public class jBash{
+
+ public static void main(String args[])throws ParseException{
+    try {
+     // jBash parser = new jBash(new FileInputStream(new File(args[1])));
+      jBash parser = new jBash(System.in));
+     
+    }
+    catch (FileNotFoundException ex){
+      ex.printStackTrace();
+    }
+     try {
+     // SimpleNode node=  Pascal.simple_expression1();{
+		SimpleNode node=  jBash.start();{
+      //node.dump("");
+            new FileWriter().write("first.s",ins);
+      }
+    }
+    catch (ParseException e){
+      System.out.println("NOK.");
+      System.out.println(e.getMessage());
+      jBash.ReInit(System.in);
+    }
+    catch (Error e){
+      System.out.println("Oops.");
+      System.out.println(e.getMessage());
+    }
+  }
+    public  void run(InputStream inputStream)throws Exception{
+
+
+    try {
+    	clear();
+      SimpleNode node=  jBash.start();{
+     // node.dump("");
+       new FileWriter().write("first.s",ins);
+      }
+    }
+    catch (Exception e){
+      throw e;
+    }
+    catch (Error e){
+      System.out.println("Oops.");
+      System.out.println(e.getMessage());
+    }
+  }
+}
+
+PARSER_END(jBash)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+SKIP :
+{
+	<"#"> : IL_COMMENTO
+}
+
+<IL_COMMENTO>
+SKIP:
+{ <"/n"> : DEFAULT //ogni nuova linea il commento finisce
+| <~[ ]>
+}
+
+
+/* Parole riservate */
+TOKEN :
+{
+  <IF: "if">
+| <ENDIF: "fi">
+| <THEN: "then">
+| <ELSE: "else">
+| <ECHO: "echo">
+| <FOR: "for">
+| <WHILE: "while">
+| <DO: "do">
+| <IN: "in">
+| <EXIT: "exit">
+| <DONE: "done">
+| <ESCLAMATIVO: "!">
+| <DOPPIAQUADRAPERTA: "[[">
+| <DOPPIAQUADRCHIUSA: "]]">
+| <CASE: "case">
+| <ELIF: "elif"> //Else if (if esclusivo) nuovo costrutto da definire in Java
+| <ESAC: "esac">
+| <FUNCTION: "function">
+| <SELECT: "select">
+| <TIME: "time"> //mostra l'orario di sistema
+| <UNTIL: "until">
+| <LEFTBRACE: "{">
+| <RIGHTBRACE: "}">
+| <EXEC: "exec"> //esegue i programmi esterni (portato per compatibilita')
+| <ALIAS: "alias">
+| <BREAK: "break">
+| <CHANGEDIR: "cd"> //per entrare in diverse directory (portato per compatibilita')
+| <CONTINUE: "continue">
+| <KILL: "kill"> //questo è un comando unix per terminare i processi (portato per compatibilita)'
+| <PRINTF: "printf">
+| <RETURN: "return">
+| <TEST: "test">  //e' l'equivalente java di == restituisce un booleano
+| <UNALIAS: "unalias">
+| <UNSET: "unset">
+| <SET: "set">
+}
+/* SEPARATORI */
+
+TOKEN :
+{
+  < LPAREN: "(" >
+| < RPAREN: ")" >
+| < PIPE: "|" >
+| < DOUBLEPIPE: "||" >
+| < LBRACKET: "[" >
+| < RBRACKET: "]" >
+| < COMMA: "," >
+| < DOT: "." >
+| < AT: "@" >
+//| < DOLLARO: "$" > non credo sia necessario qui
+}
+
+
+
+/* LITERALS */
+
+TOKEN :
+{
+  < INTEGER_LITERAL:
+        <DECIMAL_LITERAL> (["l","L"])?
+  >
+|
+  < #DECIMAL_LITERAL: ["1"-"9"] (["0"-"9"])* >
+
+|
+  < FLOATING_POINT_LITERAL:
+        <DECIMAL_FLOATING_POINT_LITERAL>
+  >
+|
+  < #DECIMAL_FLOATING_POINT_LITERAL:
+        (["0"-"9"])+ "." (["0"-"9"])* (<DECIMAL_EXPONENT>)? (["f","F","d","D"])?
+      | "." (["0"-"9"])+ (<DECIMAL_EXPONENT>)? (["f","F","d","D"])?
+      | (["0"-"9"])+ <DECIMAL_EXPONENT> (["f","F","d","D"])?
+      | (["0"-"9"])+ (<DECIMAL_EXPONENT>)? ["f","F","d","D"]
+  >
+|
+  < #DECIMAL_EXPONENT: ["e","E"] (["+","-"])? (["0"-"9"])+ >
+|
+  < #HEXADECIMAL_EXPONENT: ["p","P"] (["+","-"])? (["0"-"9"])+ >
+|
+  < CHARACTER_LITERAL:
+      "'"
+      (   (~["'","\\","\n","\r"])
+        | ("\\"
+            ( ["n","t","b","r","f","\\","'","\""]
+            | ["0"-"7"] ( ["0"-"7"] )?
+            | ["0"-"3"] ["0"-"7"] ["0"-"7"]
+            )
+          )
+      )
+      "'"
+  >
+|
+  < STRING_LITERAL:
+      "\""
+      (   (~["\"","\\","\n","\r"])
+        | ("\\"
+            ( ["n","t","b","r","f","\\","'","\""]
+            | ["0"-"7"] ( ["0"-"7"] )?
+            | ["0"-"3"] ["0"-"7"] ["0"-"7"]
+            )
+          )
+      )*
+      "\""
+  >
+}
+
+
+
+void Input() :
+{ int count; }
+{
+  count=MatchedBraces() <EOF>
+  { System.out.println("I livelli di nidificazione sono: " + count); }
+}
+
+int MatchedBraces() :
+{ int nested_count=0; }
+{
+  <LEFTBRACE> [ nested_count=MatchedBraces() ] <RIGHTBRACE>
+  { return ++nested_count; }
+}
