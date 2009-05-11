@@ -1,0 +1,121 @@
+/**
+ * @Autor Vincenzo Dentamaro 556035
+ * jBash Java parser per la Bourne Again Shell (Bash)
+ */
+
+PARSER_BEGIN(jBash)
+
+public class jBash{
+
+
+
+ public static void main(String args[])throws ParseException{
+
+     // jBash parser = new jBash(new FileInputStream(new File(args[1])));
+      jBash parser = new jBash(System.in);
+      parser.input();
+    }
+ }
+
+
+PARSER_END(jBash)
+
+void input() :
+{}
+{
+ matchQuadre() <EOF>
+}
+
+void matchQuadre() :
+{}
+{
+   <DOPPIAQUADRAPERTA> [ matchQuadre() ] <DOPPIAQUADRACHIUSA>
+
+}
+
+
+SKIP :
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+}
+SKIP :
+{
+	<"#"> : IL_COMMENTO
+}
+
+<IL_COMMENTO>
+SKIP:
+{ <"/n"> : DEFAULT //ogni nuova linea il commento finisce
+| <~[ ]>
+}
+
+
+/* Parole riservate */
+TOKEN :
+{
+  <IF: "if">
+| <ENDIF: "fi">
+| <THEN: "then">
+| <ELSE: "else">
+| <ECHO: "echo">
+| <FOR: "for">
+| <WHILE: "while">
+| <DO: "do">
+| <IN: "in">
+| <EXIT: "exit">
+| <DONE: "done">
+| <ESCLAMATIVO: "!">
+| <DOPPIAQUADRAPERTA: "[[">
+| <DOPPIAQUADRACHIUSA: "]]">
+| <CASE: "case">
+| <ELIF: "elif"> //Else if (if esclusivo) nuovo costrutto da definire in Java
+| <ESAC: "esac">
+| <FUNCTION: "function">
+| <SELECT: "select">
+| <TIME: "time"> //mostra l'orario di sistema
+| <UNTIL: "until">
+| <LEFTBRACE: "{">
+| <RIGHTBRACE: "}">
+| <EXEC: "exec"> //esegue i programmi esterni (portato per compatibilita')
+| <ALIAS: "alias">
+| <BREAK: "break">
+| <CHANGEDIR: "cd"> //per entrare in diverse directory (portato per compatibilita')
+| <CONTINUE: "continue">
+| <KILL: "kill"> //questo è un comando unix per terminare i processi (portato per compatibilita)'
+| <PRINTF: "printf">
+| <RETURN: "return">
+| <TEST: "test">  //e' l'equivalente java di == restituisce un booleano
+| <UNALIAS: "unalias">
+| <UNSET: "unset">
+| <SET: "set">
+}
+/* SEPARATORI */
+
+TOKEN :
+{
+  < LPAREN: "(" >
+| < RPAREN: ")" >
+| < PIPE: "|" >
+| < DOUBLEPIPE: "||" >
+| < LBRACKET: "[" >
+| < RBRACKET: "]" >
+| < VIRGOLA: "," >
+| < PUNTO: "." >
+| < AT: "@" >
+| < DOLLARO: "$" >
+}
+
+
+ TOKEN:{
+  <ID:<LETTERA>(<LETTERA>
+  | <NUMERO>)*>
+  | <LETTERA:["a"-"z", "A"-"Z"]>
+  | <NUMERO:["0"-"9"]>
+  | <SEGNO:["+", "-"]>
+  | <NUMERI_C_VIRGOLA: (["0"-"9"])* "." (["0"-"9"])*>
+  | <NUMERI_DECIMALI: ["1"-"9"] (["0"-"9"])* >
+  | <STRINGA: (<LETTERA>)*|(<NUMERO>)*|(<SEGNO>)*|((<NUMERO>)*)?((<LETTERA>)*)?|((<LETTERA>)*)?((<NUMERO>)*)?>
+}
