@@ -2,6 +2,25 @@
  * @Autor Vincenzo Dentamaro 556035
  * jBash Java parser per la Bourne Again Shell (Bash)
  */
+options {
+  LOOKAHEAD = 1;
+  CHOICE_AMBIGUITY_CHECK = 2;
+  OTHER_AMBIGUITY_CHECK = 1;
+  STATIC = true;
+  DEBUG_PARSER = false;
+  DEBUG_LOOKAHEAD = false;
+  DEBUG_TOKEN_MANAGER = false;
+  ERROR_REPORTING = true;
+  JAVA_UNICODE_ESCAPE = false;
+  UNICODE_INPUT = false;
+  IGNORE_CASE = false;
+  USER_TOKEN_MANAGER = false;
+  USER_CHAR_STREAM = false;
+  BUILD_PARSER = true;
+  BUILD_TOKEN_MANAGER = true;
+  SANITY_CHECK = true;
+  FORCE_LA_CHECK = false;
+}
 
 PARSER_BEGIN(jBash)
 
@@ -12,6 +31,8 @@ public class jBash{
  public static void main(String args[])throws ParseException{
 
      // jBash parser = new jBash(new FileInputStream(new File(args[1])));
+      String username = System.getProperty("user.name");
+      System.out.print(username+"@jBash:~#");
       jBash parser = new jBash(System.in);
       parser.input();
     }
@@ -32,6 +53,7 @@ void matchQuadre() :
    <DOPPIAQUADRAPERTA> [ matchQuadre() ] <DOPPIAQUADRACHIUSA>
 
 }
+
 
 
 SKIP :
@@ -104,18 +126,129 @@ TOKEN :
 | < RBRACKET: "]" >
 | < VIRGOLA: "," >
 | < PUNTO: "." >
+| < DOUBLEDOTS: ".." >
+| < DUOBLEPUNTO: ":" >
+| < DUOBLEAND: "&&" >
 | < AT: "@" >
 | < DOLLARO: "$" >
+| < UGUALE: "==" >
+| < ASSEGNA: "=" >
+| < STD_OUT: ">>" >
+| < STD_IN: "<<" >
+| < MAGGIORE: ">" >
+| < MINORE: "<" >
+| < MAGG_UGUALE: ">=" >
+| < MIN_UGUALE: "<=" >
 }
 
 
  TOKEN:{
-  <ID:<LETTERA>(<LETTERA>
+    <IDENTIFICATORE:<LETTERA>(<LETTERA>
   | <NUMERO>)*>
   | <LETTERA:["a"-"z", "A"-"Z"]>
   | <NUMERO:["0"-"9"]>
   | <SEGNO:["+", "-"]>
+  | <PUNTATORE: "$"<IDENTIFICATORE>>
   | <NUMERI_C_VIRGOLA: (["0"-"9"])* "." (["0"-"9"])*>
   | <NUMERI_DECIMALI: ["1"-"9"] (["0"-"9"])* >
-  | <STRINGA: (<LETTERA>)*|(<NUMERO>)*|(<SEGNO>)*|((<NUMERO>)*)?((<LETTERA>)*)?|((<LETTERA>)*)?((<NUMERO>)*)?>
+  | <STRINGA: (["a"-"z","A"-"Z", "0"-"9", "+", "-", "_", "$"])*>
+  | <DIRECTORY:"/" (["a"-"z","A"-"Z", "0"-"9", "+", "-","/", "$", "_"])*>
+
 }
+
+void elementoDiSeparazione():
+{}
+{
+  <PIPE>|<DOUBLEAND>|<STD_OUT>|<STD_IN>
+}
+
+void espressione():
+{
+}
+{
+    termine() ( "+" espressione() | "-" espressione() )*
+}
+void termine():
+{
+}
+{
+    unario() ( "*" termine() | "/" termine() )*
+}
+void unario():
+{
+}
+{
+    "-" elemento() | elemento()
+}
+void elemento():
+{
+}
+{
+    <NUMBERO> | "(" espressione() ")"
+}
+
+
+
+
+void ifStatement() :
+{}
+{
+	<IF> test() <THEN> istruzione() (LOOKAHEAD(1) <ELSE> istruzione())? <FI>
+
+}
+void test() :
+{}
+{
+LOOKAHEAD(1)
+ <IDENTIFICATORE> (<UGUALE>|<MAGGIORE>|<MINORE>|<MAGG_UGUALE>|<MIN_UGUALE>)(espressione() |<IDENTIFICATORE>|<NUMERO>|<STRINGA>)
+}
+
+void echo() :
+{}
+{
+ <ECHO><STRINGA>
+}
+
+void set() :
+{}
+{
+<SET> assegnazione()
+}
+
+void assegnazione()
+{}
+{
+<IDENTIFICATORE><ASSEGNA>(espressione()|<NUMERO>|<STRINGA>|<NUMERI_DECIMALI>|<NUMERI_C_VIRGOLA>|<PUNTATORE><DOUBLEPUNTO><STRINGA>)
+}
+void exit() :
+{}
+{
+<EXIT>
+}
+
+
+void time() :
+{}
+{
+<TIME>
+}
+
+void alias() :
+{}
+{
+<ALIAS> assegnazione()
+}
+
+void exec() :
+{}
+{
+<EXEC><STRINGA>
+}
+
+void changedir() :
+{}
+{
+<CD> (<DIRECTORY>|<PUNTO>|<DOUBLEDOTS>)
+}
+
+
