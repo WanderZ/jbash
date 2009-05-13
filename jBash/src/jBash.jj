@@ -79,7 +79,9 @@ SKIP:
 TOKEN :
 {
   <IF: "if">
+
 | <ENDIF: "fi">
+| <HEADER: "#!/bin/bash"|"#!/bin/sh">
 | <THEN: "then">
 | <ELSE: "else">
 | <ECHO: "echo">
