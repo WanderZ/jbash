@@ -1,0 +1,961 @@
+/**
+ /**
+ * This is an experimental Bash grammar for JavaCC.
+ * <p>References used for this grammar :<ol>
+ * <li> Bash Official Manual (man bash)
+ * <li> http://www.gnu.org/software/bash/manual/
+ * </od>
+ * <p>This grammar is released under the GNU Library Public License (LGPL).
+ * <p><address>Vincenzo Dentamaro vincenzodentamaro@gmail.com</address>
+ * <p><address>Emanuele Palumbo emanuelepalumbo@virgilio.it</address>
+ * @see http://code.google.com/p/jbash/
+ *
+ * <p>Idea:<ul>
+ * </ol>
+ * jBash is a parser that accepts a syntax similar to bash.
+ * The idea is to create a pseudo-shell that can run on any kind of
+ * devices, from a smartphone to normal pc.
+ * </ul>
+ *
+ * @author Vincenzo Dentamaro mat.556035
+ *         Emanuele Palumbo   mat.512657
+ *
+ * @date 05 august 2009
+ */
+options{
+  LOOKAHEAD = 1;
+  CHOICE_AMBIGUITY_CHECK = 2;
+  OTHER_AMBIGUITY_CHECK = 1;
+  STATIC = true;
+  DEBUG_PARSER = false;
+  //
+DEBUG_LOOKAHEAD = false;
+  DEBUG_TOKEN_MANAGER = false;
+  ERROR_REPORTING = false;
+  //
+JAVA_UNICODE_ESCAPE = false;
+  UNICODE_INPUT = false;
+  IGNORE_CASE = false;
+  USER_TOKEN_MANAGER = false;
+  USER_CHAR_STREAM = false;
+  BUILD_PARSER = true;
+  BUILD_TOKEN_MANAGER = true;
+  SANITY_CHECK = true;
+  FORCE_LA_CHECK = false;
+}
+//Le dichiarazioni del Parser vanno qui!!
+PARSER_BEGIN(jBash)
+package jBash;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.io.*;
+import SPTP.protocol.CommonClasses.Compression;
+import SPTP.protocol.CommonClasses.Compression.compressionType;
+
+import SPTP.protocol.ClientInterface.SPTPclient;
+import SPTP.protocol.ClientInterface.SPTPclientInterface;
+import SPTP.protocol.ServerInterface.ServerInterface;
+import SPTP.protocol.ServerInterface.ServerThread;
+/**
+ * <p>jBash Java Parser for the Bourne Again Shell:<ul>
+ * </ol>
+ * jBash is a parser that accepts a syntax similar to bash.
+ * The idea is to create a pseudo-shell that can run on any kind of
+ * devices, from a smartphone to normal pc.
+ * </ul>
+ */
+ 
+ 
+public class jBash{
+  private static jBash parser;
+  private static int numVariables = 0;
+  public final static String bashVersion = "jBash 0.2 By Emanuele Palumbo and Vincenzo Dentamaro";
+  public final static String version = "0.2";
+  	/** List containing the name and value of environment variables bash */
+public static List<jBashItem> list1; 
+
+  /** Used as temporary buffer for inclusion in the lists of environment variables*/
+public static String temporanea1;
+  public static String temporanea2;
+  /** Working directory*/
+public static String dir;
+
+  public static void main(String args[]){
+    temporanea1 = new String();
+    temporanea2 = new String();
+    /** Working directory, tilde = home directory */
+dir = new String();
+    dir = "~";
+  list1 = new LinkedList<jBashItem>();
+    /**The Parser works on standard input if not the past is no argument,
+    otherwise working on a file when it is passed the filename as a parameter */
+if (args.length == 0){
+      System.out.println("jBash Parser Version "+version+":  Reading from standard input . . .");
+      parser = new jBash(System.in);
+    }
+    else if (args.length == 1){
+      System.out.println("jBash Parser Version "+version+":  Reading from file "+args[0]+" . . .");
+      try {
+        parser = new jBash(new java.io.FileInputStream(args[0]));
+      }
+      catch (java.io.FileNotFoundException e){
+        System.out.println("jBash Parser Version "+version+":  File "+args[0]+" not found.");
+        return ;
+      }
+    }
+    else {
+      System.out.println("jBash Parser Version "+version+":  Usage is one of:");
+      System.out.println("         java jBash < inputfile");
+      System.out.println("OR");
+      System.out.println("         java jBash inputfile");
+      return ;
+    }
+    Token t;
+    /** The parser works until the exit command is executed. If the error is printed
+     display the kind of mistake and its place in the spring. The parser continues to work
+     if error: return to the seed of grammar*/
+while (true){
+     
+System.out.print(System.getProperty("user.name")+"@jBash:"+dir+"#");
+      try {
+        parser.Input();
+      }
+      catch (ParseException e){
+        System.out.println(e.getMessage());
+        System.out.println("I try to continue from start.");
+        parser.ReInit(token_source);
+      //It synchronizes with the purpose of grammar
+      }
+    }
+  }
+
+  
+  /**
+	@method adds at the bottom of the linked list list1 objects created.
+	@kind Dynamic scope with linked list.
+	*/
+public static void addItems(String name, String value){
+   boolean found = false;
+   jBashItem item = new jBashItem(name,value);
+   ListIterator<jBashItem> iterator = list1.listIterator();
+   while (iterator.hasNext() & !found){
+   jBashItem temp = iterator.next();
+   if(temp.toString().equals(name)){   	       
+       found = true;
+       temp.setvalueField(value);
+       temp.active = true;
+      }  
+   }
+   if(!found) list1.add(item);       
+}
+    
+  /**
+@method Removes the object whose name the string value passed.
+
+*/
+public static void removeItems(String name){
+  int toRemove = searchItems(name);
+  if(toRemove != -1){
+     list1.remove(toRemove);
+ 
+  }else System.out.println("Unable to remove item. Item not found!");
+   
+}    
+  /**
+	@method Search for the item in the past in list1 input and returns its position in the list.
+    @return the position in the list.
+	*/
+private static int searchItems(String name){
+  boolean found = false;
+  int pos = -1 ;
+  int i = 0;
+  ListIterator<jBashItem> iterator = list1.listIterator(); 
+  while (iterator.hasNext() & !found){
+   jBashItem temp = iterator.next();
+   if(temp.toString().equals(name)){
+      pos =  i;
+      found = true;
+      }  
+   i++;
+   }
+ return pos;
+ 
+      
+}
+  /**
+	@method it tests of the existence of the directory given as parameter by the cd command, print screen
+            the error message if the outcome of the test is negative, otherwise change the variable
+            Which indicates the working directory*/
+public static void dirExists(String directory){
+    File file = new File(directory);
+    boolean exists = file.exists();
+    if (!exists){
+      System.out.println("No such file or directory");
+    }
+    else {
+      dir = directory;
+    }
+  }
+  /**
+  @method executes the command passed as a parameter, then returns an output value (0 or 1)
+           indicating the success or failure of the enforcement.
+   */
+public static void executeCommand(String command){
+    try {
+      Process p = Runtime.getRuntime().exec(command);
+      p.waitFor();
+      System.out.println(p.exitValue());
+    }
+    catch (Exception err){
+      System.out.println("Command not found!");
+    }
+  }
+
+
+  public static void createServer(int port,Compression.compressionType type)  {   try {
+   		Runtime runtime = Runtime.getRuntime();       
+        int nrOfProcessors = runtime.availableProcessors();
+       
+     		ServerInterface server = new ServerThread("jBash Secure Protocol",port,nrOfProcessors,type,null,"vincenzoServer");
+	
+    }
+    catch (Exception err){
+      System.out.println("Command not found!");
+    }
+
+  }
+
+  public static void sendCommand(String ip,int port,String command)
+ {
+   try {
+   		
+   		Runtime runtime = Runtime.getRuntime();       
+        int nrOfProcessors = runtime.availableProcessors();
+       SPTPclientInterface client = new SPTPclient(port, nrOfProcessors, "","vincenzo");
+        boolean connected = client.connect(ip);
+       client.sendCommand(command);
+       client.closeConnection();
+       System.exit(0);
+       
+      }
+    catch (Exception err){
+      System.out.println("Error sending command");
+    }
+
+  }
+
+  
+    public static void getFile(String ip,int port,String filename)
+ {
+   try {
+   		Runtime runtime = Runtime.getRuntime();       
+        int nrOfProcessors = runtime.availableProcessors();
+         SPTPclientInterface client = new SPTPclient(port, nrOfProcessors, "","vincenzo");
+      boolean connected = client.connect(ip);
+     	long start = System.currentTimeMillis();
+
+    	client.getFile(filename);
+    							long elapsed = System.currentTimeMillis() - start;
+    							System.out.println("Elapsed " +(elapsed/1000)+" seconds" );
+    		    				client.closeConnection();
+	 System.exit(0);
+      
+    }
+    catch (Exception err){
+      System.out.println("Command not found!");
+    }
+
+  }
+
+    public static void putFile(String ip,int port,String filename)
+ {
+   try {
+   		Runtime runtime = Runtime.getRuntime();       
+        int nrOfProcessors = runtime.availableProcessors();
+     		    
+     SPTPclientInterface client = new SPTPclient(port, nrOfProcessors, "","vincenzo");
+      boolean connected = client.connect(ip);
+     client.putFile(filename);
+
+	 client.closeConnection();
+      System.exit(0);
+      
+    }
+    catch (Exception err){
+      System.out.println("Command not found!");
+    }
+
+  }
+
+    public static void changeDir(String ip,int port,String dir)
+ {
+   try {
+   		Runtime runtime = Runtime.getRuntime();       
+        int nrOfProcessors = runtime.availableProcessors();
+       
+       SPTPclientInterface client = new SPTPclient(port, nrOfProcessors, "","vincenzo");
+        boolean connected = client.connect(ip);
+     	client.changeDirectory("/Users/macbook/Documents/workspace/SPTP/bin");
+     	client.retriveFileList();
+     	 client.closeConnection();
+				
+    }
+    catch (Exception err){
+      System.out.println("Command not found!");
+    }
+
+  }
+
+    public static void listDir(String ip,int port)
+ {
+   try {
+   		Runtime runtime = Runtime.getRuntime();       
+        int nrOfProcessors = runtime.availableProcessors();
+       SPTPclientInterface client = new SPTPclient(port, nrOfProcessors, "","vincenzo");
+       boolean connected = client.connect(ip);
+       client.retriveFileList();
+        client.closeConnection();
+        
+    }
+    catch (Exception err){
+      System.out.println("Command not found!");
+    }
+
+  }
+  
+}
+
+PARSER_END(jBash)
+SKIP:{
+  " "
+  | "\t"
+  //| "\n"
+| "\r"
+  | "#":IN_LINE_COMMENT
+}
+<IN_LINE_COMMENT>SKIP:{
+  "\n":DEFAULT
+}
+<IN_LINE_COMMENT>MORE:{
+  <~[]>
+}
+TOKEN:{
+  <SEMICOLON:";">
+  | <DOUBLESEMICOLON:";;">
+  | <CRLF:"\n">
+  | <PIPE:"|">
+  | <AND:"&">
+  | <DOUBLEAND:"&&">
+  | <DOUBLEPIPE:"||">
+  | <EQUAL:"=">
+  | <DOUBLEEQUAL:"==">
+  | <DIFFERENT:"!=">
+  | <MINOR:"<">
+  | <MAJOR:">">
+  | <MINEQ:"<=">
+  | <MAJEQ:">=">
+  | <DOUBLEMIN:"<<">
+  | <DOUBLEMAJ:">>">
+  | <PRODUCT:"*">
+  | <DIVISION:"/">
+  | <MODULE:"%">
+  | <PLUS:"+">
+  | <MIN:"-">
+  | <BILL:"$">
+  | <ESCL:"!">
+  | <LBRACE:"{">
+  | <RBRACE:"}">
+  | <LTON:"(">
+  | <RTON:")">
+  | <DLTON:"((">
+  | <DRTON:"))">
+  | <APOS:"'">
+  | <DOT:".">
+}
+TOKEN:{
+  <IF:"if">
+  | <ELIF:"elif">
+  | <ELSE:"else">
+  | <FI:"fi">
+  | <FOR:"for">
+  | <DO:"do">
+  | <DONE:"done">
+  | <WHILE:"while">
+  | <UNTIL:"until">
+  | <SELECT:"select">
+  | <IN:"in">
+  | <CASE:"case">
+  | <ESAC:"esac">
+  | <FUNCTION:"function">
+  | <RETURN:"return">
+  | <THEN:"then">
+  | <BASH_VERSION:"BASH_VERSION">
+  | <ALIAS:"alias">
+  | <BREAK:"break">
+  | <CD:"cd">
+  | <COMMAND:"command">
+  | <DECLARE:"declare">
+  | <TYPESET:"typeset">
+  | <ECHO:"echo">
+  | <EXEC:"exec">
+  | <EXIT:"exit">
+  | <EXPORT:"export">
+  | <HELP:"help">
+  | <KILL:"kill">
+  | <SPTP:"sptp">
+  | <SUSPEND:"suspend">
+  | <TEST:"test">
+  | <TIMES:"times">
+  | <ULIMIT:"ulimit">
+  | <UMASK:"umask">
+  | <UNALIAS:"unalias">
+  | <UNSET:"unset">
+  | <WAIT:"wait">
+}
+TOKEN:{
+  <NUMERO:["1"-"9"](["0"-"9"])*>
+  | <NOME_VALIDO:<LETTERA>(<LETTERA>
+  | <DIGIT>)*>
+  | <#LETTERA:["_", "A"-"Z", "a"-"z"]>
+  ////////////////
+| <#DIGIT:["0"-"9"]>
+  | <STRINGA:<APOS>(~["\"", "\\", "\n", "\r", "'"])*<APOS>>
+  ///////////////////
+| <DIRECTORY:(<DIVISION>
+  | <DOT>)(["a"-"z", "A"-"Z", "0"-"9", "+", "-", "/", "$", "_", ":", "@", "."])*>
+  //////////////
+// unix like directory
+| <ZERO:"0">
+
+}
+TOKEN:{
+  <PARAM:<MIN>(<P2>
+  | <P3>
+  | <P4>
+  | <P5>
+  | <P6>
+  | <P7>
+  | <P8>
+  | <P9>
+  | <P10>
+  | <P11>
+  | <P12>
+  | <P13>
+  | <P14>
+  | <P15>
+  | <P16>
+  | <P17>
+  | <P18>
+  | <P19>
+  | <P20>
+  | <P21>
+  | <P22>
+  | <P23>
+  | <P24>
+  | <P25>
+  | <P26>
+  | <P27>
+  | <P28>
+  | <P29>
+  | <P30>
+  | <P31>
+  | <P32>
+  | <P33>
+  | <P34>
+  | <P35>
+  | <P36>
+  | <P37>
+  | <P38>
+  | <P39>
+  | <P40>
+  | <P41>)+>
+  | <#P2:"a">
+  | <#P3:"o">
+  | <#P4:"n">
+  | <#P5:"z">
+  | <#P6:"eq">
+  | <#P7:"ge">
+  | <#P8:"gt">
+  | <#P9:"le">
+  | <#P10:"ne">
+  | <#P11:"ef">
+  | <#P12:"nt">
+  | <#P13:"ot">
+  | <#P14:"b">
+  | <#P15:"c">
+  | <#P16:"d">
+  | <#P17:"e">
+  | <#P18:"f">
+  | <#P19:"g">
+  | <#P20:"h">
+  | <#P21:"k">
+  | <#P22:"L">
+  | <#P23:"p">
+  | <#P24:"r">
+  | <#P25:"s">
+  | <#P26:"S">
+  | <#P27:"t">
+  | <#P28:"u">
+  | <#P29:"w">
+  | <#P30:"x">
+  | <#P31:"P">
+  | <#P32:"v">
+  | <#P33:"V">
+  | <#P34:"F">
+  | <#P35:"i">
+  | <#P36:"E">
+  | <#P37:"cl">
+  | <#P38:"l">
+  | <#P39:"H">
+  | <#P40:"m">
+  | <#P41:"q">
+}
+JAVACODE /**In case of error, this method shows a video message about the
+     the error and about the expected token,then it will simulate an insertion of
+     the expected token and continue to carry out the parsing by
+     resynchronizing with grammar from the point where the parser was stopped.
+   */
+   
+void onErrorSkipTO(int kind){
+  ParseException e = generateParseException();
+  // generate the exception object.
+System.out.println("\n"+e.toString()+"\n*** Was attended token "+jBashConstants.tokenImage[kind].toString()+" ***");
+  // print the error message  
+System.out.println("\nI try to continue with parse -->\n");
+  Token t;
+  do {
+    t = new Token(kind);
+  //   t = getNextToken();
+}
+  while (t.kind != kind);
+}
+/** The purpose of grammar */
+void Input():{}{
+  (<CRLF>)*list()<EOF>
+}
+void list():{}{
+  (<LBRACE>in()(<RBRACE>
+  | onErrorSkipTO(RBRACE))
+  | <LTON>in()(<RTON>
+  | onErrorSkipTO(RTON))
+  | unitaryList())(LOOKAHEAD(2)separator()list())*
+}
+void in():{}{
+  (built_in_commands()
+  | expression()
+  | control_block())(LOOKAHEAD(2)(separator())(built_in_commands()
+  | expression()
+  | control_block()))*(<SEMICOLON>
+  | onErrorSkipTO(SEMICOLON))
+  | <EOF>
+}
+void unitaryList():{}{
+  built_in_commands()
+  | expression()
+  | control_block()
+  | <EOF>
+}
+void control_block():{}{
+  if_statement()
+  | for_statement()
+  | while_statement()
+  | until_statement()
+  | return_stm()
+  | function()
+  | select_statement()
+  | case_statement()
+}
+void separator():{}{
+  <PIPE>
+  | <AND>
+  | <DOUBLEPIPE>
+  | <DOUBLEAND>
+  | <SEMICOLON>
+  | (<CRLF>)+
+}
+void expr_concat():{}{
+  <DOUBLEPIPE>
+  | <DOUBLEAND>
+}
+void test_param():{}{
+  <ESCL>
+  | <PARAM>
+////////////////////////
+}
+void op_conf():{}{
+  <DOUBLEEQUAL>
+  | <DIFFERENT>
+  | <MINOR>
+  | <MAJOR>
+  | <MINEQ>
+  | <MAJEQ>
+}
+void redirection_op():{}{
+  <MINOR>
+  | <DOUBLEMIN>
+  | <MAJOR>
+  | <DOUBLEMAJ>
+}
+void operatore_alta_priorita():{}{
+  <PRODUCT>
+  | <DIVISION>
+  | <MODULE>
+}
+void expression():{}{
+  (arithmetic_eval()
+  | conditional_expr())
+}
+//////////////////////////////
+void conditional_expr():{}{
+  (LOOKAHEAD(2)(<STRINGA>)?(test_param()
+  | <DIFFERENT>
+  | <EQUAL>)<STRINGA>
+  | (<DIRECTORY>)?test_param()<DIRECTORY>)
+}
+void arithmetic_eval():{}{
+  <DLTON>(formula()(sub())?)(<DRTON>
+  | (onErrorSkipTO(DRTON)))
+}
+void sub():{}{
+  expr_concat()formula()(sub())?
+}
+void formula():{}{
+  (alg()
+  | <ESCL>alg())(op_conf()(alg()
+  | <ESCL>alg()))?
+}
+void alg():{}{
+  terminale_alta_priorita()(LOOKAHEAD(2)(<PLUS>
+  | <MIN>)terminale_alta_priorita())?
+}
+void terminale_alta_priorita():{}{
+  (<MIN>alg()
+  | <LTON>alg()(<RTON>
+  | onErrorSkipTO(RTON))(operatore_alta_priorita()alg())?
+  | (<NUMERO>
+  | onErrorSkipTO(NUMERO))(operatore_alta_priorita()alg())?)
+}
+void select_statement():{}{
+  <SELECT><NOME_VALIDO>(<IN>(<NOME_VALIDO>)+)?(<SEMICOLON>
+  | onErrorSkipTO(SEMICOLON))(<DO>
+  | onErrorSkipTO(DO))list()(<SEMICOLON>|onErrorSkipTO(SEMICOLON))(<DONE>
+  | onErrorSkipTO(DONE))
+}
+void case_statement():{}{
+  <CASE>(<BILL><NOME_VALIDO>
+  | <NOME_VALIDO>)(<IN>
+  | onErrorSkipTO(IN))(case_block())*(<ESAC>
+  | onErrorSkipTO(ESAC))
+}
+void case_block():{}{
+  (<LTON>)?<NOME_VALIDO>(case_tail())?(<RTON>
+  | onErrorSkipTO(RTON))list()(<DOUBLESEMICOLON>
+  | onErrorSkipTO(DOUBLESEMICOLON))
+}
+void case_tail():{}{
+  <PIPE><NOME_VALIDO>(case_tail())?
+}
+void if_statement():{}{
+  <IF>list()(<THEN>
+  | onErrorSkipTO(THEN))list()(elif_substatement())?(<ELSE>list())?(<FI>
+  | onErrorSkipTO(FI))
+}
+void elif_substatement():{}{
+  <ELIF>list()(<THEN>
+  | onErrorSkipTO(THEN))list()(elif_substatement())?
+}
+/**Under the for between one and another <SEMICOLON> we need a space,
+otherwise returns error */
+void for_statement():{}{
+  <FOR><DLTON>(expression())?(<SEMICOLON>
+  | onErrorSkipTO(SEMICOLON))(expression())?(<SEMICOLON>
+  | onErrorSkipTO(SEMICOLON))(expression())?<DRTON>(<DO>
+  | onErrorSkipTO(DO))list()(<DONE>
+  | onErrorSkipTO(DONE))
+}
+void while_statement():{}{
+  <WHILE>list()(<DO>
+  | onErrorSkipTO(DO))list()(<DONE>
+  | onErrorSkipTO(DONE))
+}
+void until_statement():{}{
+  <UNTIL>list()(<DO>
+  | onErrorSkipTO(DO))list()(<DONE>
+  | onErrorSkipTO(DONE))
+}
+void statement_di_assegnamento():{
+  Token t1, t2;
+}
+/////////////////////////////////////////
+{
+  (t1 = <NOME_VALIDO>t2 = <EQUAL>)(<NOME_VALIDO>
+  | arithmetic_eval()
+  | t2 = <STRINGA>
+  | LOOKAHEAD(2)<BILL>t2 = <NOME_VALIDO>)?{
+    temporanea1 = t1.toString();
+    temporanea2 = t2.toString();
+  }
+}
+void function():{}{
+  (<FUNCTION>)?<NOME_VALIDO>(<LTON>
+  | onErrorSkipTO(LTON))(<RTON>
+  | onErrorSkipTO(RTON))list()(LOOKAHEAD(2)redirection())?
+}
+void redirection():{}//////////////////////////////
+{
+  redirection_op()(<DIRECTORY>
+  | onErrorSkipTO(DIRECTORY))
+}
+void return_stm():{}{
+  <RETURN>(<NUMERO>
+  | <ZERO>)?
+}
+//BUILT-IN COMMANDS
+void built_in_commands():{}{
+  //list
+bash_version()
+  | alias_stm()
+  | break_stm()
+  | changedir_stm()
+  | command()
+  | declare_stm()
+  | echo_stm()
+  | exec_stm()
+  | exit_stm()
+  | export_stm()
+  | help_stm()
+  | kill_stm()
+  | suspend_stm()
+  | test_expr_stm()
+  | times_stm()
+  | ulimit_stm()
+  | umask_stm()
+  | unalias_stm()
+  | unset_stm()
+  | wait_stm()
+  | sptp_stm()
+}
+void bash_version():{}////////////////////////////////////
+{
+  <BASH_VERSION>{
+    System.out.println(bashVersion);
+  }
+}
+void alias_stm():{}{
+  <ALIAS>(<PARAM>)?(statement_di_assegnamento())?{
+    addItems(temporanea1,temporanea2);
+  }
+}
+void break_stm():{}////////////////////////////////////////////////////////
+{
+  <BREAK>(<NUMERO>
+  | <ZERO>)?
+}
+void changedir_stm():{
+  Token t;
+}
+{
+  t = <CD>(<PARAM>)?(t = <DIRECTORY>)?{
+    dirExists(t.toString());
+  }
+}
+/** Command executes the command it has built-in or external, and Unlike exec
+     does not close the shell after its execution */
+void command():{
+  Token t;
+}
+{
+  t = <COMMAND>(<PARAM>)*(built_in_commands()
+  | t = <NOME_VALIDO>
+  | t = <DIRECTORY>)?{
+    if (!(t.toString().equals("command"))){
+      executeCommand(t.toString());
+    }
+  }
+}
+void declare_stm():{}{
+  <DECLARE>(<PARAM>)*(statement_di_assegnamento())?
+}
+void echo_stm():{
+  Token t;
+}
+{
+  t = <ECHO>(<PARAM>)*(t = <STRINGA>
+  | <BILL>t = <NOME_VALIDO>)?
+  {
+    String token = t.toString();
+    if (!token.substring(0, 1).equals("'")){
+    	for(jBashItem item : list1){
+          if (item.toString().equals(token)) {
+             if(item.active){
+                System.out.println(item.getValueField());
+               } else System.out.println(""); 
+             
+          }
+
+      }
+    } else System.out.println(token.substring(1, t.toString().length()-1));
+  }
+}
+/** The exec command executes a command built-in or external, and at the end of his execution exits. */
+void exec_stm():{
+  Token t;
+}
+{
+  t = <EXEC>(LOOKAHEAD(2)<PARAM>)?(LOOKAHEAD(2)<PARAM><NOME_VALIDO>)?(built_in_commands()
+  | t = <NOME_VALIDO>
+  | t = <DIRECTORY>)?{
+    if (!(t.toString().equals("exec"))){
+      executeCommand(t.toString());
+      System.out.println("I say goodbye!");
+      Runtime.getRuntime().exit(0);
+    }
+  }
+}
+void exit_stm():{}//////////////////////////////////////////////////////
+{
+  <EXIT>(<NUMERO>
+  | <ZERO>)?/////////////
+{
+	Random generatore = new Random();
+	int casual = generatore.nextInt(3);
+    if (casual == 0) System.out.println("Have a nice day "+
+                                         System.getProperty("user.name")+"!");
+    if (casual == 1) System.out.println("See you soon!");
+    if (casual == 2) System.out.println("Have fun Mr."+
+                                         System.getProperty("user.name")+"!");
+    Runtime.getRuntime().exit(0);
+  }
+}
+void export_stm():{
+  Token t1;
+  Token t2;
+}
+{
+  t2 = <EXPORT>(<PARAM>)*t1 = <NOME_VALIDO>(<EQUAL>(t2 = <STRINGA>|t2 = <DIRECTORY>))?{
+    String tempo = "";
+    if (t1.toString().compareToIgnoreCase("")>0){
+     String temporanea = t1.toString();
+     
+     if(!t2.toString().substring(0, 1).equals("'")){
+       tempo = t2.toString(); 
+     } else tempo = t2.toString().substring(1, t2.toString().length()-1);     
+      addItems(temporanea,tempo);
+    }
+  }
+}
+void help_stm():{}{
+  <HELP>(<PARAM>)?(built_in_commands()
+  | <NOME_VALIDO>)?
+}
+void kill_stm():{}//////////////////////////////////////////////////////////////////
+{
+  <KILL>(<PARAM><NUMERO>)?(<NUMERO>
+  | <ZERO>)?
+}
+void suspend_stm():{}{
+  <SUSPEND>(<PARAM>)?
+}
+void test_expr_stm():{}{
+  <TEST>expression()
+}
+void times_stm():{}{
+  <TIMES>{
+    Calendar cal = Calendar.getInstance();
+    cal.getTime();
+    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+    System.out.println(sdf.format(cal.getTime()));
+  }
+}
+void ulimit_stm():{}////////////////////////////
+{
+  <ULIMIT>(<PARAM>(<NUMERO>
+  | <ZERO>)?)?
+}
+void umask_stm():{}////////////////////////////////
+{
+  <UMASK>(<PARAM>)?(<NUMERO>
+  | <ZERO>)?
+}
+void unalias_stm():{Token t;}{
+  t=<UNALIAS>(<PARAM>)?(t=<NOME_VALIDO>)?
+  {
+  	if (!t.toString().equals("unalias")) removeItems(t.toString());
+  }
+}
+void unset_stm():{Token t;}{
+  t=<UNSET>(<PARAM>)?(t=<NOME_VALIDO>)?
+  {
+  	if (!t.toString().equals("unset")) removeItems(t.toString());
+  }
+}
+void wait_stm():{}/////////////////////////////////////////////////////
+{
+  <WAIT>(<NUMERO>
+  | <ZERO>)?
+}
+
+
+void sptp_stm():{
+  Token h = null;
+  Token t2 = null;
+  Token t3 = null;
+  Token t4 = null;
+}
+{
+
+  <SPTP>  (LOOKAHEAD(2)h =<PARAM>)? (t2 = <NUMERO>)? (LOOKAHEAD(4) t3 = <STRINGA>)?  (LOOKAHEAD(4)t4 =<STRINGA>)?
+{
+		String t = "";
+		if(h != null)		{			 t = h.toString();
+			}
+    if(t.toString().equals("-s"))    {    createServer(Integer.parseInt(t2.toString()),Compression.compressionType.LZMA);		
+    }else
+if(t.toString().equals("-c"))
+    {
+    		String ip = t3.toString().substring(1,t3.toString().length()-1);
+    		String command = t4.toString().substring(1,t4.toString().length()-1);
+      
+     if (command.substring(0,4).equals("-get"))
+     {      getFile(ip, Integer.parseInt(t2.toString()), command.substring(5,command.length()));
+
+     }
+     if (command.substring(0,4).equals("-put"))
+     {
+      putFile(ip, Integer.parseInt(t2.toString()), command.substring(5,command.length()));
+
+     }
+     if (command.substring(0,4).equals("-chd"))
+     {
+      changeDir(ip, Integer.parseInt(t2.toString()), command.substring(5,command.length()));
+
+     }
+
+     if (command.substring(0,4).equals("-lst"))
+     {
+      listDir(ip, Integer.parseInt(t2.toString()));
+
+     }
+
+     if (command.substring(0,4).equals("-cmd"))
+     {
+      sendCommand(ip, Integer.parseInt(t2.toString()),command.substring(5,command.length()));
+
+     }
+
+     
+    }else    {     System.out.println("SCURE PARALLEL TRANSFER PROTOCOL FOR JBASH\n USAGE\n"+
+       "For server side: sptp -s port\nFor client side: sptp -c port 'IP' 'command'");
+       System.out.println("A valid command is:\n-get filename\n-put filename \n-cmd command\n"
+       +"-lst\n-chd direcotry");
+       System.out.println("jBash and SPTP by Vincenzo Dentamaro (c) 2009-2010");
+
+    	 }	
+    
+
+   
+  }
+    
+
+}
+
